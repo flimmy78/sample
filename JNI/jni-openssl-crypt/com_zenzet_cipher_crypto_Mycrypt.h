@@ -47,6 +47,62 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestUpdate
 JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestFinal
   (JNIEnv *, jclass, jlong);
 
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    publicKeyEncrypt
+ * Signature: (Ljava/lang/String;[B[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_publicKeyEncrypt
+  (JNIEnv *, jclass, jstring, jbyteArray, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeCryptInitContext
+ * Signature: (II[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInitContext
+  (JNIEnv *, jclass, jint, jint, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeCryptUpdate
+ * Signature: (JI[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate
+  (JNIEnv *, jclass, jlong, jint, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeCryptdoFinal
+ * Signature: (JI[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptdoFinal
+  (JNIEnv *, jclass, jlong, jint, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeSignInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignInitContext
+  (JNIEnv *, jclass, jstring, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeSignUpdate
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignUpdate
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeSigndoFinal
+ * Signature: (J[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSigndoFinal
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
 #ifdef __cplusplus
 }
 #endif

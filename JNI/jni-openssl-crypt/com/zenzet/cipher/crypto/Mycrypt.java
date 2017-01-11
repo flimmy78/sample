@@ -10,17 +10,22 @@ public class Mycrypt
     public native static long getInstance(String algor);
     public native static int digestUpdate(long ctx, byte[] in);
     public native static byte [] digestFinal(long ctx);
+	public native static byte [] publicKeyEncrypt(String algor, byte [] in, byte [] publicKey);
+	public native static long  OpenSslRSANativeCryptInitContext(int cryptMode, int padding, byte[] key);
+	public native static byte [] OpenSslRSANativeCryptUpdate(long ctx, int mode, byte[] in);
+	public native static byte [] OpenSslRSANativeCryptdoFinal(long ctx, int mode, byte[] in);
+	public native static long  OpenSslRSANativeSignInitContext(String hashalg, byte[] key);
+	public native static int   OpenSslRSANativeSignUpdate(long ctx, byte[] in);
+	public native static byte [] OpenSslRSANativeSigndoFinal(long ctx, byte[] in);
+	//public native static long [] OpenSslRSANative_crypt_doFinal(int cryptMode, int padding, String key);
+	//public native byte [] publicKeyDecrypt(String algor, byte [] in, byte [] privateKey);
 
     public static void main (String[] args)
     {
         //LOCKetAESCFB ();
-        /*
-        Object object = Mycrypt.LKTGenerateKeyPair (4096);
-        Map<String, String>map=(Map<String, String>)object;
-        System.out.println("[java]pk:"+map.get("pk"));
-        System.out.println("[java]pv:"+map.get("pv"));
-        */
 
+        long ctx = 0;
+        /*
         long ctx = getInstance ("MD5");
         System.out.println("ctx" + ctx);
 
@@ -32,6 +37,38 @@ public class Mycrypt
         
         byte[] a = digestFinal (ctx);
         System.out.println (a);
+        */
+
+        Object object = Mycrypt.LKTGenerateKeyPair (1024);
+        Map<String, String>map=(Map<String, String>)object;
+        String pubkey = map.get("pk");
+        String privatekey = map.get("pv");
+        System.out.println("[java]pk:"+map.get("pk"));
+        System.out.println("[java]pv:"+map.get("pv"));
+
+        /*
+        byte[] sPubkey = pubkey.getBytes();
+        ctx = OpenSslRSANativeCryptInitContext (0, 1,  sPubkey);
+        System.out.println (ctx);
+
+        String sinput = "hello,world";
+        byte[] binput = sinput.getBytes();
+        byte[] boutput = OpenSslRSANativeCryptdoFinal (ctx, 0, binput);
+        String soutput = new String(boutput);
+        System.out.println (soutput);
+
+        byte[] sPrivateKey = privatekey.getBytes();
+        long ctx1 = OpenSslRSANativeCryptInitContext (1, 1, sPrivateKey);
+        System.out.println (ctx1);
+
+        byte[] boutput1 = OpenSslRSANativeCryptdoFinal (ctx1, 1,boutput); 
+        String soutput1 = new String(boutput1);
+        System.out.println (soutput1);
+        */
+
+        byte[] sPrivateKey = privatekey.getBytes();
+        long ctx2 = OpenSslRSANativeSignInitContext ("MD5", sPrivateKey);
+        System.out.println (ctx2);
 
     }
 
