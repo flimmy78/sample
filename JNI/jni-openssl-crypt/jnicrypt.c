@@ -54,7 +54,7 @@ char* LOCKET_ERR_GetString (void)
     if (!iInit)
     {
         ERR_load_ERR_strings();
-        //ERR_load_crypto_strings();
+        ERR_load_crypto_strings();
         iInit  = 1;
     }
 
@@ -987,9 +987,9 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
         (*env)->SetByteArrayRegion(env, ret, 0, signlen, (jbyte *)signbuf);
     } while (0);
 
-    EVP_PKEY_free (signinfo->pkey);
+    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
     EVP_MD_CTX_cleanup (&signinfo->mdctx);
-    free (signinfo);
+    if (NULL != signinfo) free (signinfo);
 
     return ret;
 }
@@ -1212,3 +1212,856 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
     return (jint) iErr;
 }
 
+int get_sm2_public_key (EVP_PKEY *pstKey, char *pcPublicKey)
+{
+    unsigned char *pBuf          = NULL;
+    int iBase64Len               = 0;
+    unsigned char *pucPublicKey  = NULL;
+    int ret                      = ERR_SUCCESS;
+    BIO *bio                     = NULL;
+    EC_KEY *ec                   = NULL;
+
+    /* ------------create public key-------------------*/
+    /* pkcs1 && DER format */
+    do 
+    {
+        bio = BIO_new (BIO_s_mem());
+        if (NULL == bio)
+        {
+            ret = ERR_FAILED;
+            printf ("create mem bio failed.\n") ;
+            break;
+        }
+
+        ec = EVP_PKEY_get1_EC_KEY (pstKey);
+        if (NULL == ec)
+        {
+            ret = ERR_FAILED;
+            printf ("get ec key failed.\n") ;
+            break;
+        }
+
+        ret = i2d_EC_PUBKEY_bio (bio, ec);
+        if (ERR_SUCCESS != ret)
+        {
+            printf ("i2d_EC_PUBKEY_bio, failed to create ec public key, err:%d.\n", ret);
+            ret = ERR_FAILED;
+            break;
+        }
+
+        /* get data from bio mem */
+        BUF_MEM *ecptr = NULL;
+        ret = BIO_get_mem_ptr(bio, &ecptr);
+        if ((ERR_SUCCESS != ret) || (NULL == ecptr))
+        {
+            ret = ERR_FAILED;
+            printf ("BIO_get_mem_ptr failed.\n") ;
+            break;
+        }
+
+        pBuf = (unsigned char*) malloc (ecptr->length * 2);
+        if (NULL == pBuf)
+        {
+            ret = ERR_FAILED;
+            printf ("malloc failed\n");
+            break;
+        }
+        memset (pBuf, 0, ecptr->length * 2);
+
+        iBase64Len = EVP_EncodeBlock(pBuf, (unsigned char*)ecptr->data, ecptr->length);
+
+        memcpy (pcPublicKey, pBuf, iBase64Len);
+    } while (0);
+
+    free (pBuf);
+    EC_KEY_free(ec);
+    BIO_free_all (bio);
+
+    if (ERR_SUCCESS != ret)
+    {
+        printf ("get ec public key failed.\n");
+        return ret;
+    }
+
+    return ERR_SUCCESS;
+}
+
+int get_sm2_private_key (EVP_PKEY *pstKey, char *pcPrivateKey)
+{
+    unsigned char *pBuf          = NULL;
+    int iBase64Len               = 0;
+    unsigned char *pucPublicKey  = NULL;
+    int ret                      = ERR_SUCCESS;
+    BIO *bio                     = NULL;
+
+    /* ------------create private key-------------------*/
+    /* pkcs8 && DER format */
+    do 
+    {
+        bio = BIO_new (BIO_s_mem());
+        if (NULL == bio)
+        {
+            ret = ERR_FAILED;
+            printf ("create mem bio failed.\n") ;
+            break;
+        }
+
+        ret = i2d_PKCS8PrivateKey_bio(bio, pstKey, NULL, NULL, 0, NULL, NULL);
+        if (ERR_SUCCESS != ret)
+        {
+            printf ("failed write RSA private key into file, err:%d\n", ret) ;
+            ret = ERR_FAILED;
+            break;
+        }
+
+        /* get data from bio mem */
+        BUF_MEM *bptr = NULL;
+        ret = BIO_get_mem_ptr(bio, &bptr);
+        if ((ERR_SUCCESS != ret) || (NULL == bptr))
+        {
+            ret = ERR_FAILED;
+            printf ("BIO_get_mem_ptr failed\n") ;
+            break;
+        }
+
+        pBuf = (unsigned char*) malloc (bptr->length * 2);
+        if (NULL == pBuf)
+        {
+            ret = ERR_FAILED;
+            printf ("malloc failed\n");
+            break;
+        }
+        memset (pBuf, 0, bptr->length * 2);
+
+        iBase64Len = EVP_EncodeBlock(pBuf, (unsigned char*) bptr->data, bptr->length);
+        memcpy (pcPrivateKey, pBuf, iBase64Len);
+
+    } while (0);
+
+    free (pBuf);
+    BIO_free_all (bio);
+
+    if (ERR_SUCCESS != ret)
+    {
+        printf ("get ec public key failed.\n");
+        return ret;
+    }
+
+    return ERR_SUCCESS;
+}
+
+/*
+ * Class:     org_apache_commons_crypto_cipher_OpenSslNative
+ * Method:    generateSM2KeyPair
+ * Signature: (I)Ljava/util/Map;
+ */
+JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativegenerateSM2KeyPair
+(JNIEnv *env, jclass jo)
+{
+    jclass class_map = (*env)->FindClass(env, "java/util/HashMap");
+    jmethodID map_init = (*env)->GetMethodID(env, class_map, "<init>", "()V");
+    jobject Map = (*env)->NewObject(env, class_map, map_init, "");
+    jmethodID Map_put = (*env)->GetMethodID(env, class_map,
+                                            "put",
+                                            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+
+    int iErr                = ERR_SUCCESS;
+	int curve_nid           = NID_sm2p256v1; /* 如果需要其他ECC，可以在这里设置, 比如NID_X9_62_prime256v1 */
+	EVP_PKEY *pstKey        = NULL;
+	EVP_PKEY_CTX *pkctx     = NULL;
+
+    do 
+    {
+        if (!(pkctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL))) {
+            fprintf(stderr, "error: %s %d\n", __FILE__, __LINE__);
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!EVP_PKEY_keygen_init(pkctx)) {
+            fprintf(stderr, "error: %s %d\n", __FILE__, __LINE__);
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pkctx, curve_nid)) {
+            fprintf(stderr, "error: %s %d\n", __FILE__, __LINE__);
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!EVP_PKEY_keygen(pkctx, &pstKey)) {
+            fprintf(stderr, "error: %s %d\n", __FILE__, __LINE__);
+            iErr = ERR_FAILED;
+            break;
+        }
+
+#if 0
+        printf("SM2-ECC Key size: %d bit\n", EVP_PKEY_bits(pstKey));
+        printf("SM2-ECC Key type: %s\n", OBJ_nid2sn(curve_nid));
+#endif
+#if 0
+        /* write out PEM format keys */
+        BIO *outbio = BIO_new_fp(stdout, BIO_NOCLOSE);
+        if(!PEM_write_bio_PUBKEY(outbio, pstKey))
+            BIO_printf(outbio, "Error writing public key data in PEM format");
+
+        if(!PEM_write_bio_PrivateKey(outbio, pstKey, NULL, NULL, 0, 0, NULL))
+            BIO_printf(outbio, "Error writing private key data in PEM format");
+#endif
+
+        char szPublicKey[1024] = {0};
+        get_sm2_public_key (pstKey, szPublicKey);
+        (*env)->CallObjectMethod(env, Map, Map_put,
+                (*env)->NewStringUTF(env,"pk"),
+                (*env)->NewStringUTF(env, szPublicKey));
+
+        char szPrivateKey[1024] = {0};
+        get_sm2_private_key (pstKey, szPrivateKey);
+        (*env)->CallObjectMethod(env, Map, Map_put,
+                (*env)->NewStringUTF(env,"pv"),
+                (*env)->NewStringUTF(env, szPrivateKey));
+
+    } while (0);
+
+    if (NULL != pstKey) 
+    {
+        EVP_PKEY_free(pstKey);
+    }
+    if (NULL != pkctx)
+    {
+        EVP_PKEY_CTX_free(pkctx);
+    }
+
+    if (ERR_SUCCESS != iErr)
+    {
+        (*env)->CallObjectMethod(env, Map, Map_put,
+                                 (*env)->NewStringUTF(env,"pk"),
+                                 (*env)->NewStringUTF(env, "invalid pk"));
+        (*env)->CallObjectMethod(env, Map, Map_put,
+                                (*env)->NewStringUTF(env,"pv"),
+                                (*env)->NewStringUTF(env, "invalid pv"));
+    }
+
+    return Map;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2CryptInitContext
+ * Signature: (I[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInitContext
+  (JNIEnv *env, jclass this, jint mode,  jbyteArray key)
+{
+	unsigned char *keybuf = NULL;
+	size_t keylen = 0;
+	const unsigned char *p = NULL;
+	EVP_PKEY *pkey = NULL;
+	EVP_PKEY_CTX *pkctx = NULL;
+    int iErr = ERR_SUCCESS;
+
+    do 
+    {
+        if (NULL == key)
+        {
+            PRINT_ERROR ("invalid input ");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!(keybuf = (unsigned char *)(*env)->GetByteArrayElements(env, key, 0))) {
+            PRINT_ERROR ("invalid key");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        keylen = (size_t)(*env)->GetArrayLength(env, key);
+        if (keylen == 0)
+        {
+            PRINT_ERROR ("invalid key length");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        unsigned char szDecBase64Buf[keylen];
+        int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
+
+        p = szDecBase64Buf;
+        if (ENCRYPT == mode)
+        {
+            if (!(pkey = d2i_PUBKEY(&pkey, &p, tmplen))) {
+                PRINT_ERROR ("d2i_PUBKEY failed");
+                iErr = ERR_FAILED;
+                break;
+            }
+        }
+        else
+        {
+            if (!(pkey = d2i_AutoPrivateKey(NULL, &p, tmplen))){
+                PRINT_ERROR ("d2i_AutoPrivateKey failed");
+                iErr = ERR_FAILED;
+                break;
+            }
+        }
+
+        if (!(pkctx = EVP_PKEY_CTX_new(pkey, NULL))) {
+            PRINT_ERROR("EVP_PKEY_CTX_new failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (ENCRYPT == mode)
+        {
+            if (!EVP_PKEY_encrypt_init(pkctx)) 
+            {
+                PRINT_ERROR("EVP_PKEY_encrypt_init failed");
+                iErr = ERR_FAILED;
+                break;
+            }
+        }
+        else
+        {
+            if (!EVP_PKEY_decrypt_init(pkctx))
+            {
+                PRINT_ERROR("EVP_PKEY_decrypt_init failed");
+                iErr = ERR_FAILED;
+                break;
+            }
+        }
+
+    } while (0);
+
+    if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
+    EVP_PKEY_free(pkey);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        EVP_PKEY_CTX_free(pkctx);
+    }
+
+	return (jlong) pkctx;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2CryptUpdate
+ * Signature: (JI[B)[B
+ */
+static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate
+  (JNIEnv *env, jclass this, jlong ctx, jint mode, jbyteArray in)
+{
+	jbyteArray ret = NULL;
+	unsigned char *inbuf = NULL;
+	unsigned char *outbuf = NULL;
+	size_t inlen, outlen;
+	EVP_PKEY *pkey = NULL;
+	EVP_PKEY_CTX *pkctx = NULL;
+    int iErr = ERR_SUCCESS;
+
+    if (NULL == (void*)ctx)
+    {
+        PRINT_ERROR ("invalid param");
+        return ret;
+    }
+    pkctx = (EVP_PKEY_CTX*) ctx;
+
+    do 
+    {
+        if (NULL == in)
+        {
+            PRINT_ERROR ("invalid input ");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!(inbuf = (unsigned char *)(*env)->GetByteArrayElements(env, in, 0))) {
+            PRINT_ERROR ("invalid input ");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        inlen = (size_t)(*env)->GetArrayLength(env, in);
+        if (inlen <= 0) {
+            PRINT_ERROR ("invalid in length");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        /* we can not get ciphertext length from plaintext
+         * so malloc the max buffer
+         */
+        outlen = inlen + 2048;
+        if (!(outbuf = malloc(outlen))) {
+            PRINT_ERROR("malloc failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (ENCRYPT == mode)
+        {
+            if (!EVP_PKEY_encrypt(pkctx, outbuf, &outlen, inbuf, inlen)) {
+                PRINT_ERROR("EVP_PKEY_encrypt failed");
+                iErr = ERR_FAILED;
+                break;
+            }
+        }
+        else
+        {
+            if (!EVP_PKEY_decrypt(pkctx, outbuf, &outlen, inbuf, inlen)) {
+                PRINT_ERROR("EVP_PKEY_decrypt failed");
+                iErr = ERR_FAILED;
+                break;
+            }
+        }
+
+        if (!(ret = (*env)->NewByteArray(env, outlen))) {
+            PRINT_ERROR("NewByteArray failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        (*env)->SetByteArrayRegion(env, ret, 0, outlen, (jbyte *)outbuf);
+    } while (0);
+
+    if (inbuf) (*env)->ReleaseByteArrayElements(env, in, (jbyte *)inbuf, JNI_ABORT);
+    if (outbuf) free(outbuf);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != pkctx) EVP_PKEY_CTX_free(pkctx);
+    }
+
+	return ret;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2CryptdoFinal
+ * Signature: (J[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptdoFinal
+  (JNIEnv *env, jclass this, jlong ctx, jint mode, jbyteArray in)
+{
+	jbyteArray ret = NULL;
+    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate (env, this, ctx, mode, in);
+    if (NULL == ret)
+    {
+        return ret;
+    }
+
+    EVP_PKEY_CTX *pkctx = (EVP_PKEY_CTX*) ctx;
+    EVP_PKEY_CTX_free(pkctx);
+
+    return ret;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SignInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInitContext
+  (JNIEnv *env , jclass this, jstring algor, jbyteArray key)
+{
+    SIGNINFO *signinfo = (SIGNINFO*) malloc (sizeof (SIGNINFO));
+    if (NULL == signinfo)
+    {
+        return (jlong) NULL;
+    }
+    memset (signinfo, 0, sizeof (SIGNINFO));
+    const char* alg = NULL;
+	const unsigned char *p = NULL;
+    unsigned char *keybuf = NULL;
+	unsigned int keylen = 0;
+	const EVP_MD *md = NULL;
+    int iErr = ERR_SUCCESS;
+    OpenSSL_add_all_algorithms ();
+
+    do
+    {
+        if ((NULL == algor) || (NULL == key))
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
+            break;
+        }
+
+        if (!(alg = (*env)->GetStringUTFChars(env, algor, 0))) {
+            iErr = ERR_FAILED;
+            PRINT_ERROR("invalid alg");
+            break;
+        }
+
+        if (!(keybuf = (unsigned char *)(*env)->GetByteArrayElements(env, key, 0))) {
+            PRINT_ERROR ("invalid key");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        keylen = (size_t)(*env)->GetArrayLength(env, key);
+        if (keylen == 0)
+        {
+            PRINT_ERROR ("invalid key length");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        unsigned char szDecBase64Buf[keylen];
+        int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
+        p = szDecBase64Buf;
+        if (!(signinfo->pkey = d2i_AutoPrivateKey(NULL, &p, tmplen))){
+            PRINT_ERROR ("d2i_AutoPrivateKey failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!(md = EVP_get_digestbyname(alg))) {
+            iErr = ERR_FAILED;
+            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
+            break;
+        }
+
+        EVP_MD_CTX_init(&signinfo->mdctx);
+        if (!EVP_DigestSignInit(&signinfo->mdctx, &signinfo->pkctx, md, NULL, signinfo->pkey))
+        {
+            printf ("EVP_DigestSignInit failed, %s\n", LOCKET_ERR_GetString ());
+            iErr = ERR_FAILED;
+            PRINT_ERROR("EVP_DigestSignInit failed.");
+            break;
+        }
+    } while (0);
+
+	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
+    if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
+        EVP_MD_CTX_cleanup (&signinfo->mdctx);
+        if (NULL != signinfo) free (signinfo);
+        return (jlong) NULL;
+    }
+
+    return (jlong) signinfo;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SignUpdate
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignUpdate
+  (JNIEnv *env, jclass this , jlong ctx, jbyteArray in)
+{
+    char *inbuf = NULL;
+    size_t in_len = 0;
+    int iErr = ERR_SUCCESS;
+
+    if (NULL == (void*) ctx)
+    {
+        return ERR_FAILED;
+    }
+
+    SIGNINFO *signinfo = (SIGNINFO*) ctx;
+
+    do 
+    {
+        if (NULL == in)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
+            break;
+        }
+
+        if (!(inbuf = (char*)(*env)->GetByteArrayElements (env, in, 0))){
+            PRINT_ERROR ("invalid input");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        in_len = (*env)->GetArrayLength (env, in);
+        if (in_len == 0)
+        {
+            PRINT_ERROR ("invalid input");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!EVP_DigestSignUpdate(&signinfo->mdctx, inbuf, in_len))
+        {
+            PRINT_ERROR ("EVP_SignUpdate failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+    } while (0);
+
+    if (inbuf) (*env)->ReleaseByteArrayElements(env, in, (jbyte*)inbuf, JNI_ABORT);
+    
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
+        EVP_MD_CTX_cleanup (&signinfo->mdctx);
+        if (NULL != signinfo) free (signinfo);
+    }
+
+    return iErr;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SigndoFinal
+ * Signature: (J)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SigndoFinal
+  (JNIEnv *env, jclass this, jlong ctx)
+{
+    jbyteArray ret = NULL;
+    int iErr = ERR_SUCCESS;
+
+    if (NULL == (void*) ctx)
+    {
+        return ret;
+    }
+
+    SIGNINFO *signinfo = (SIGNINFO*) ctx;
+
+    do 
+    {
+        size_t signlen = EVP_PKEY_size (signinfo->pkey);
+        unsigned char signbuf[signlen];
+        memset (signbuf, 0, sizeof (signbuf));
+
+        if (!EVP_DigestSignFinal(&signinfo->mdctx, signbuf, &signlen))
+        {
+            PRINT_ERROR ("EVP_DigestSignFinal failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!(ret = (*env)->NewByteArray(env, signlen))) {
+            PRINT_ERROR ("NewByteArray failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        (*env)->SetByteArrayRegion(env, ret, 0, signlen, (jbyte *)signbuf);
+    } while (0);
+
+    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
+    EVP_MD_CTX_cleanup (&signinfo->mdctx);
+    if (NULL != signinfo) free (signinfo);
+
+    return ret;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifyInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInitContext
+  (JNIEnv *env , jclass this, jstring algor, jbyteArray key)
+{
+    SIGNINFO *signinfo = (SIGNINFO*) malloc (sizeof (SIGNINFO));
+    if (NULL == signinfo)
+    {
+        return (jlong) NULL;
+    }
+    memset (signinfo, 0, sizeof (SIGNINFO));
+    const char* alg = NULL;
+	const unsigned char *p = NULL;
+    unsigned char *keybuf = NULL;
+	unsigned int keylen = 0;
+	const EVP_MD *md = NULL;
+    int iErr = ERR_SUCCESS;
+    OpenSSL_add_all_algorithms ();
+
+    do
+    {
+        if ((NULL == algor) || (NULL == key))
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
+            break;
+        }
+
+        if (!(alg = (*env)->GetStringUTFChars(env, algor, 0))) {
+            iErr = ERR_FAILED;
+            PRINT_ERROR("invalid alg");
+            break;
+        }
+
+        if (!(keybuf = (unsigned char *)(*env)->GetByteArrayElements(env, key, 0))) {
+            PRINT_ERROR ("invalid key");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        keylen = (size_t)(*env)->GetArrayLength(env, key);
+        if (keylen == 0)
+        {
+            PRINT_ERROR ("invalid key length");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        unsigned char szDecBase64Buf[keylen];
+        int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
+        p = szDecBase64Buf;
+        if (!(signinfo->pkey = d2i_PUBKEY(&signinfo->pkey, &p, tmplen))){
+            PRINT_ERROR ("d2i_AutoPrivateKey failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!(md = EVP_get_digestbyname(alg))) {
+            iErr = ERR_FAILED;
+            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
+            break;
+        }
+
+        EVP_MD_CTX_init(&signinfo->mdctx);
+        if (!EVP_DigestVerifyInit(&signinfo->mdctx, &signinfo->pkctx, md, NULL, signinfo->pkey))
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR("EVP_DigestSignInit failed.");
+            break;
+        }
+
+    } while (0);
+
+	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
+    if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
+        EVP_MD_CTX_cleanup (&signinfo->mdctx);
+        if (NULL != signinfo) free (signinfo);
+        return (jlong) NULL;
+    }
+
+    return (jlong) signinfo;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifyUpdate
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyUpdate
+  (JNIEnv *env, jclass this , jlong ctx, jbyteArray in)
+{
+    char *inbuf = NULL;
+    size_t in_len = 0;
+    int iErr = ERR_SUCCESS;
+
+    if (NULL == (void*) ctx)
+    {
+        return ERR_FAILED;
+    }
+
+    SIGNINFO *signinfo = (SIGNINFO*) ctx;
+
+    do 
+    {
+        if (NULL == in)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
+            break;
+        }
+
+        if (!(inbuf = (char*)(*env)->GetByteArrayElements (env, in, 0))){
+            PRINT_ERROR ("invalid input");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        in_len = (*env)->GetArrayLength (env, in);
+        if (in_len == 0)
+        {
+            PRINT_ERROR ("invalid input");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        if (!EVP_DigestVerifyUpdate(&signinfo->mdctx, inbuf, in_len))
+        {
+            PRINT_ERROR ("EVP_DigestVerifyUpdate failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+    } while (0);
+
+    if (inbuf) (*env)->ReleaseByteArrayElements(env, in, (jbyte*)inbuf, JNI_ABORT);
+    
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
+        EVP_MD_CTX_cleanup (&signinfo->mdctx);
+        if (NULL != signinfo) free (signinfo);
+    }
+
+    return iErr;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifydoFinal
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifydoFinal
+  (JNIEnv *env, jclass this, jlong ctx, jbyteArray sign)
+{
+    int iErr = ERR_SUCCESS;
+    unsigned char* signbuf = NULL;
+    size_t signlen = 0;
+
+    if (NULL == (void*) ctx)
+    {
+        return ERR_FAILED;
+    }
+
+    SIGNINFO *signinfo = (SIGNINFO*) ctx;
+
+    do 
+    {
+        if (NULL == sign)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
+            break;
+        }
+
+        if (!(signbuf = (unsigned char*)(*env)->GetByteArrayElements (env, sign, 0))){
+            PRINT_ERROR ("invalid input");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        signlen = (*env)->GetArrayLength (env, sign);
+        if (signlen == 0)
+        {
+            PRINT_ERROR ("invalid input");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        iErr = EVP_DigestVerifyFinal(&signinfo->mdctx, signbuf, signlen);
+        if (ERR_SUCCESS != iErr)
+        {
+            break;
+        }
+
+    } while (0);
+
+    if (signbuf) (*env)->ReleaseByteArrayElements(env, sign, (jbyte*)signbuf, JNI_ABORT);
+
+    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
+    EVP_MD_CTX_cleanup (&signinfo->mdctx);
+    if (NULL != signinfo) free (signinfo);
+
+    return (jint) iErr;
+}

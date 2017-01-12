@@ -21,7 +21,7 @@ char* LOCKET_ERR_GetString (void)
     if (!iInit)
     {
         ERR_load_ERR_strings();
-        //ERR_load_crypto_strings();
+        ERR_load_crypto_strings();
         iInit = 1;
     }
 
@@ -171,6 +171,8 @@ int get_sm2_private_key (EVP_PKEY *pstKey, char *pcPrivateKey)
 
 EVP_PKEY *gen_sm2_key_pair(char szPublicKey[], char szPrivateKey[])
 {
+    //NID_X9_62_prime256v1 标准ECC的椭圆曲线
+    //NID_sm2p256v1     SM2椭圆曲线
 	int curve_nid = NID_sm2p256v1;
 	EVP_PKEY *pstKey = NULL;
 	EVP_PKEY_CTX *pkctx = NULL;
@@ -582,32 +584,11 @@ int gen_rsa_key_pair (char szPublicKey[], char szPrivateKey[], int keylen)
 int rsa_crypt (char szPublicKey[], char szPrivateKey[])
 {
     return sm2_crypt (szPublicKey, szPrivateKey);
-#if 0
-    int ret = ERR_SUCCESS;
-    char *in = "hello,world";
-    int inlen = strlen(in);
-    char out[8096] = {0};
-    int outlen = 0;
-    ret = publickey_encrypt ((unsigned char*)szPublicKey, in, inlen, out, &outlen);
-    if (ERR_SUCCESS != ret)
-    {
-        printf ("pubic key encrypt failed\n");
-        return ret;
-    }
-
-    in = out;
-    inlen = outlen;
-    ret = privatekey_decrypt ((unsigned char*) szPrivateKey, in, inlen);
-    if (ERR_SUCCESS != ret)
-    {
-        printf ("private key decrypt failed\n");
-        return ret;
-    }
-#endif
 }
 
 int asymmetric_sign (char *szPrivateKey, char *in, int inlen, char *signout, int *signlen)
 {
+    /* 改接口内部的实现，摘要算法不可选, 如果要选用其他摘要算法需要使用EVP_DigestSignInit这个系列的接口 */
 	EVP_PKEY *pkey = NULL;
 	EVP_PKEY_CTX *pkctx = NULL;
     size_t outlen = 0;
@@ -837,11 +818,9 @@ void rsa_test_large_file (char szPublicKey[], char szPrivateKey[])
         } while (1);
 
 
-    fclose(fp);
+        fclose(fp);
     } while (0);
 
-
-#if 1
     do 
     {
         unsigned char *in = outbuf;
@@ -902,11 +881,14 @@ void rsa_test_large_file (char szPublicKey[], char szPrivateKey[])
         } while (1);
 
     } while (0);
-#endif
 
     return;
 }
 
+
+#define READ_SIZE  1024*1024*10
+char gbuffer[READ_SIZE] = {0};
+char gbuffer2[READ_SIZE] = {0};
 void sm2_test_large_file (char szPublicKey[], char szPrivateKey[])
 {
 	size_t keylen, outlen;
@@ -918,6 +900,7 @@ void sm2_test_large_file (char szPublicKey[], char szPrivateKey[])
     FILE *fp = NULL;
     int sum = 0;
         int xx = 0;
+        int yy = 0;
 
     do 
     {
@@ -938,7 +921,7 @@ void sm2_test_large_file (char szPublicKey[], char szPrivateKey[])
         /* we can not get ciphertext length from plaintext
          * so malloc the max buffer
          */
-        outlen = 11 + 2048;
+        outlen = READ_SIZE;
         if (!(outbuf = malloc(outlen))) {
             PRINT_ERROR("malloc failed");
             iErr = ERR_FAILED;
@@ -957,11 +940,6 @@ void sm2_test_large_file (char szPublicKey[], char szPrivateKey[])
             iErr = ERR_FAILED;
             break;
         }
-        if (!EVP_PKEY_CTX_set_rsa_padding(pkctx, RSA_PKCS1_PADDING))
-        {
-            printf ("padding set failed\n");
-        }
-
 #if 1
         fp = fopen ("test.txt", "rb");
         if (NULL == fp)
@@ -971,33 +949,35 @@ void sm2_test_large_file (char szPublicKey[], char szPrivateKey[])
         }
 #endif
         int nread = 0;
+        /* SM2和RSA不一样,前者最大一次性能加密4MB的数据, 无法分段加密, 后者则是由RSA_SIZE决定，
+         * 因为RSA有PADDING方式，所以可以分段加密, 和固定大小数据段解密 
+         */
         do 
         {
-            char buffer[128] = {0};
-            nread = fread (buffer, 1, 117, fp);
+            nread = fread (gbuffer, 1, READ_SIZE, fp);
             if (0 == nread)
             {
                 printf ("fread finish\n");
                 break;
             }
-            printf ("nread:%d\n", nread);
 
-            if (!EVP_PKEY_encrypt(pkctx, outbuf+xx, &outlen, (unsigned char*)buffer, nread)) {
+            if (!EVP_PKEY_encrypt(pkctx, outbuf+xx, &outlen, (unsigned char*)gbuffer, nread)) {
                 PRINT_ERROR("EVP_PKEY_encrypt failed");
                 printf ("openssl err:%s\n", LOCKET_ERR_GetString ());
                 iErr = ERR_FAILED;
                 exit (1);
             }
             xx += outlen;
-            printf ("outlen:%lu\n", outlen);
-        } while (1);
+            yy += nread;
+        } while (0);
+        printf ("total read :%lu\n", yy);
+        printf ("total sm2 encrypt output:%lu\n", xx);
 
 
     fclose(fp);
     } while (0);
 
 
-#if 1
     do 
     {
         unsigned char *in = outbuf;
@@ -1034,31 +1014,22 @@ void sm2_test_large_file (char szPublicKey[], char szPrivateKey[])
             printf ("padding set failed\n");
         }
 
-        char outbuf2[8096] = {0};
-        int outlen2 = 0;
-        int tmplen = 256;
-        int j = 0;
-        int blksize = 128;
-        printf ("xx:%d\n", xx);
+        int tmplen = sizeof (gbuffer2);
         do
         {
-            tmplen = 256;
-            if (!EVP_PKEY_decrypt(pkctx, (unsigned char*)outbuf2, (size_t*)&tmplen, (unsigned char*)in + j*blksize, blksize)) {
+            if (!EVP_PKEY_decrypt(pkctx, (unsigned char*)gbuffer2, (size_t*)&tmplen, (unsigned char*)in, xx) ){
                 printf ("openssl err:%s\n", LOCKET_ERR_GetString ());
                 PRINT_ERROR("EVP_PKEY_decrypt failed");
                 iErr = ERR_FAILED;
                 break;
             }
-            printf ("outbuf2:%s, tmplen:%d\n", outbuf2, tmplen);
-            if ((j+1)*blksize == xx)
-            {
-                break;
-            }
-            j++;
+            printf ("%s\n", gbuffer2);
+            printf ("total in buffer :%lu\n", xx);
+            printf ("total sm2 decrypt output:%lu\n", tmplen);
+            break;
         } while (1);
 
     } while (0);
-#endif
 
     return;
 }
@@ -1093,14 +1064,12 @@ int main()
     printf ("\n[RSA-%d]\n", keylen);
     (void) gen_rsa_key_pair (szRSAPublicKey, szRSAPrivateKey, keylen);
     (void) rsa_crypt (szRSAPublicKey, szRSAPrivateKey);
-    rsa_test_large_file (szRSAPublicKey, szRSAPrivateKey);
 
-#if 0
     char szrsasign[4096] = {0};
     int rsasignlen = 0;
     (void) asymmetric_sign (szPrivateKey, in, strlen(in), szrsasign, &rsasignlen);
     (void) asymmetric_verify (szPublicKey, szrsasign, rsasignlen, in, strlen(in));
-#endif
+    rsa_test_large_file (szRSAPublicKey, szRSAPrivateKey);
 
 
     

@@ -49,14 +49,6 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestFinal
 
 /*
  * Class:     com_zenzet_cipher_crypto_Mycrypt
- * Method:    publicKeyEncrypt
- * Signature: (Ljava/lang/String;[B[B)[B
- */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_publicKeyEncrypt
-  (JNIEnv *, jclass, jstring, jbyteArray, jbyteArray);
-
-/*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeCryptInitContext
  * Signature: (II[B)J
  */
@@ -125,6 +117,78 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
  * Signature: (J[B)I
  */
 JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifydoFinal
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativegenerateSM2KeyPair
+ * Signature: ()Ljava/util/Map;
+ */
+JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativegenerateSM2KeyPair
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2CryptInitContext
+ * Signature: (I[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInitContext
+  (JNIEnv *, jclass, jint, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2CryptdoFinal
+ * Signature: (JI[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptdoFinal
+  (JNIEnv *, jclass, jlong, jint, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SignInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInitContext
+  (JNIEnv *, jclass, jstring, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SignUpdate
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignUpdate
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SigndoFinal
+ * Signature: (J)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SigndoFinal
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifyInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInitContext
+  (JNIEnv *, jclass, jstring, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifyUpdate
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyUpdate
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifydoFinal
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifydoFinal
   (JNIEnv *, jclass, jlong, jbyteArray);
 
 #ifdef __cplusplus
