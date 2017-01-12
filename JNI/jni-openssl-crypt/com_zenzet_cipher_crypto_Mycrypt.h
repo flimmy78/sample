@@ -98,9 +98,33 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSig
 /*
  * Class:     com_zenzet_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeSigndoFinal
- * Signature: (J[B)[B
+ * Signature: (J)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSigndoFinal
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeVerifyInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInitContext
+  (JNIEnv *, jclass, jstring, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeVerifyUpdate
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyUpdate
+  (JNIEnv *, jclass, jlong, jbyteArray);
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeVerifydoFinal
+ * Signature: (J[B)I
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifydoFinal
   (JNIEnv *, jclass, jlong, jbyteArray);
 
 #ifdef __cplusplus

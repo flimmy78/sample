@@ -16,7 +16,11 @@ public class Mycrypt
 	public native static byte [] OpenSslRSANativeCryptdoFinal(long ctx, int mode, byte[] in);
 	public native static long  OpenSslRSANativeSignInitContext(String hashalg, byte[] key);
 	public native static int   OpenSslRSANativeSignUpdate(long ctx, byte[] in);
-	public native static byte [] OpenSslRSANativeSigndoFinal(long ctx, byte[] in);
+	public native static byte [] OpenSslRSANativeSigndoFinal(long ctx);
+
+	public native static long  OpenSslRSANativeVerifyInitContext(String hashalg, byte[] key);
+	public native static int   OpenSslRSANativeVerifyUpdate(long ctx, byte[] in);
+	public native static int   OpenSslRSANativeVerifydoFinal(long ctx, byte[] sign);
 	//public native static long [] OpenSslRSANative_crypt_doFinal(int cryptMode, int padding, String key);
 	//public native byte [] publicKeyDecrypt(String algor, byte [] in, byte [] privateKey);
 
@@ -66,9 +70,24 @@ public class Mycrypt
         System.out.println (soutput1);
         */
 
+        String md = "SHA512";
+        String in = "hello,world";
+        byte[] bin = in.getBytes();
+
         byte[] sPrivateKey = privatekey.getBytes();
-        long ctx2 = OpenSslRSANativeSignInitContext ("MD5", sPrivateKey);
-        System.out.println (ctx2);
+        long ctx2 = OpenSslRSANativeSignInitContext (md,  sPrivateKey);
+        int ret = OpenSslRSANativeSignUpdate (ctx2, bin);
+        byte[] boutput2 = OpenSslRSANativeSigndoFinal (ctx2);
+
+         
+        byte[] sPublicKey = pubkey.getBytes();
+        long ctx3 = OpenSslRSANativeVerifyInitContext("SHA512", sPublicKey);
+        ret = OpenSslRSANativeVerifyUpdate (ctx3, bin);
+
+        //System.out.println ("boutput2 len :" +boutput2.length);
+        ret = OpenSslRSANativeVerifydoFinal (ctx3, boutput2);
+        System.out.println ("verify :" + ret);
+        
 
     }
 
