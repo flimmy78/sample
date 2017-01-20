@@ -39,12 +39,26 @@ typedef enum tagPaddingMode
     PKCS1_OAEP_PADDING = 2
 }PADDINGMODE;
 
-typedef struct tagSignInfo
+typedef struct tagSignContext
 {
+    const EVP_MD* md;
     EVP_MD_CTX mdctx;
     EVP_PKEY *pkey;
     EVP_PKEY_CTX *pkctx;
-}SIGNINFO;
+}SIGNCTX;
+
+typedef struct tagRSAContext
+{
+    int cryptmode;
+    int padding;
+    EVP_PKEY_CTX *pkctx;
+}RSACTX;
+
+typedef struct tagSM2Context
+{
+    int cryptmode;
+    EVP_PKEY_CTX *pkctx;
+}SM2CTX;
 
 char* LOCKET_ERR_GetString (void)
 {
@@ -555,12 +569,48 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestFinal
 
 /*
  * Class:     com_zenzet_cipher_crypto_Mycrypt
- * Method:    publicKeyEncrypt
+ * Method:    
  * Signature: (Ljava/lang/String;I[B[B)[B
- * Note:      mode, padding 参考当前文件内定义的CRYPTMODE, PADDINGMODE
+ * Note:      padding 参考当前文件内定义的PADDINGMODE
  */
 JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInitContext
-  (JNIEnv *env, jclass this, jint mode,  jint padding, jbyteArray key)
+  (JNIEnv *env, jclass this, jint algomode,  jint padding)
+{
+    (void) algomode;
+
+    int iErr = ERR_SUCCESS;
+    RSACTX *rsaContext = NULL;
+
+    do 
+    {
+        rsaContext = (RSACTX*) malloc (sizeof (RSACTX));
+        if (NULL == rsaContext)
+        {
+            PRINT_ERROR("malloc failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+        rsaContext->padding = padding;
+
+    } while (0);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        free(rsaContext);
+    }
+
+	return (jlong) rsaContext;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    publicKeyEncrypt
+ * Signature: (Ljava/lang/String;I[B[B)[B
+ * Note:      cryptmode, 参考当前文件内定义的CRYPTMODE
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInit
+  (JNIEnv *env, jclass this, jlong ctx, jint cryptmode, jbyteArray key)
 {
 	unsigned char *keybuf = NULL;
 	size_t keylen = 0;
@@ -568,6 +618,14 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
 	EVP_PKEY *pkey = NULL;
 	EVP_PKEY_CTX *pkctx = NULL;
     int iErr = ERR_SUCCESS;
+
+    RSACTX *rsaContext = (RSACTX*) ctx;
+    if (NULL == rsaContext)
+    {
+        PRINT_ERROR ("invalid ctx");
+        return ERR_FAILED;
+    }
+    rsaContext->cryptmode = cryptmode;
 
     do 
     {
@@ -596,7 +654,7 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
         int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
 
         p = szDecBase64Buf;
-        if (ENCRYPT == mode)
+        if (ENCRYPT == cryptmode)
         {
             if (!(pkey = d2i_PUBKEY(&pkey, &p, tmplen))) {
                 PRINT_ERROR ("d2i_PUBKEY failed");
@@ -618,10 +676,11 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
             iErr = ERR_FAILED;
             break;
         }
+        rsaContext->pkctx = pkctx;
 
-        if (ENCRYPT == mode)
+        if (ENCRYPT == cryptmode)
         {
-            if (!EVP_PKEY_encrypt_init(pkctx)) 
+            if (!EVP_PKEY_encrypt_init(rsaContext->pkctx)) 
             {
                 PRINT_ERROR("EVP_PKEY_encrypt_init failed");
                 iErr = ERR_FAILED;
@@ -630,7 +689,7 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
         }
         else
         {
-            if (!EVP_PKEY_decrypt_init(pkctx))
+            if (!EVP_PKEY_decrypt_init(rsaContext->pkctx))
             {
                 PRINT_ERROR("EVP_PKEY_decrypt_init failed");
                 iErr = ERR_FAILED;
@@ -638,7 +697,8 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
             }
         }
 
-        int rsapadding = PKCS1_PADDING;
+        int padding = rsaContext->padding;
+        int rsapadding = 0;
         if (PKCS1_PADDING == padding)
         {
             rsapadding = RSA_PKCS1_PADDING;
@@ -653,7 +713,7 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
         } 
 
         if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
-            if (!EVP_PKEY_CTX_set_rsa_padding(pkctx, rsapadding)){
+            if (!EVP_PKEY_CTX_set_rsa_padding(rsaContext->pkctx, rsapadding)){
                 PRINT_ERROR("EVP_PKEY_CTX_set_rsa_padding failed");
                 iErr = ERR_FAILED;
                 break;
@@ -666,10 +726,11 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
 
     if (ERR_SUCCESS != iErr)
     {
-        EVP_PKEY_CTX_free(pkctx);
+        EVP_PKEY_CTX_free(rsaContext->pkctx);
+        free (rsaContext);
     }
 
-	return (jlong) pkctx;
+	return iErr;
 }
 
 /*
@@ -677,8 +738,8 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
  * Method:    OpenSslRSANativeCryptUpdate
  * Signature: (J[B)[B
  */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate
-  (JNIEnv *env, jclass this, jlong ctx, jint mode, jbyteArray in)
+static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate
+  (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
 	unsigned char *inbuf = NULL;
@@ -688,12 +749,13 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
 	EVP_PKEY_CTX *pkctx = NULL;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*)ctx)
+    RSACTX *rsaContext = (RSACTX*) ctx;
+    if (NULL == rsaContext)
     {
-        PRINT_ERROR ("invalid param");
-        return ret;
+        PRINT_ERROR ("invalid ctx");
+        return NULL;
     }
-    pkctx = (EVP_PKEY_CTX*) ctx;
+    pkctx = rsaContext->pkctx;
 
     do 
     {
@@ -730,7 +792,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
             break;
         }
 
-        if (ENCRYPT == mode)
+        if (ENCRYPT == rsaContext->cryptmode)
         {
             if (!EVP_PKEY_encrypt(pkctx, outbuf, &outlen, inbuf, inlen)) {
                 PRINT_ERROR("EVP_PKEY_encrypt failed");
@@ -762,6 +824,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
     if (ERR_SUCCESS != iErr)
     {
         if (NULL != pkctx) EVP_PKEY_CTX_free(pkctx);
+        free (rsaContext);
     }
 
 	return ret;
@@ -773,17 +836,18 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
  * Signature: (J[B)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptdoFinal
-  (JNIEnv *env, jclass this, jlong ctx, jint mode, jbyteArray in)
+  (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
-    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate (env, this, ctx, mode, in);
+    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate (env, this, ctx, in);
     if (NULL == ret)
     {
         return ret;
     }
 
-    EVP_PKEY_CTX *pkctx = (EVP_PKEY_CTX*) ctx;
-    EVP_PKEY_CTX_free(pkctx);
+    RSACTX *rsaContext = (RSACTX*) ctx;
+    EVP_PKEY_CTX_free(rsaContext->pkctx);
+    free (rsaContext);
 
     return ret;
 }
@@ -795,25 +859,22 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
  * Note:      padding默认PKCS1,如有需要可以支持其他的
  */
 JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignInitContext
-  (JNIEnv *env , jclass this, jstring algor, jbyteArray key)
+  (JNIEnv *env , jclass this, jstring algor)
 {
-    SIGNINFO *signinfo = (SIGNINFO*) malloc (sizeof (SIGNINFO));
-    if (NULL == signinfo)
+    SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
+    if (NULL == signCtx)
     {
         return (jlong) NULL;
     }
-    memset (signinfo, 0, sizeof (SIGNINFO));
+    memset (signCtx, 0, sizeof (SIGNCTX));
     const char* alg = NULL;
 	const unsigned char *p = NULL;
-    unsigned char *keybuf = NULL;
-	unsigned int keylen = 0;
-	const EVP_MD *md = NULL;
     int iErr = ERR_SUCCESS;
     OpenSSL_add_all_algorithms ();
 
     do
     {
-        if ((NULL == algor) || (NULL == key))
+        if (NULL == algor)
         {
             iErr = ERR_FAILED;
             PRINT_ERROR ("invalid input");
@@ -823,6 +884,56 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSi
         if (!(alg = (*env)->GetStringUTFChars(env, algor, 0))) {
             iErr = ERR_FAILED;
             PRINT_ERROR("invalid alg");
+            break;
+        }
+
+        if (!(signCtx->md = EVP_get_digestbyname(alg))) {
+            iErr = ERR_FAILED;
+            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
+            break;
+        }
+
+        EVP_MD_CTX_init(&signCtx->mdctx);
+    } while (0);
+
+	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signCtx) free (signCtx);
+        return (jlong) NULL;
+    }
+
+    return (jlong) signCtx;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeSignInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ * Note:      padding默认PKCS1,如有需要可以支持其他的
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignInit
+  (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
+{
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
+    {
+        return (jlong) NULL;
+    }
+
+	const unsigned char *p = NULL;
+    unsigned char *keybuf = NULL;
+	unsigned int keylen = 0;
+    int iErr = ERR_SUCCESS;
+    OpenSSL_add_all_algorithms ();
+
+    do
+    {
+        if (NULL == key)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
             break;
         }
 
@@ -843,27 +954,20 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSi
         unsigned char szDecBase64Buf[keylen];
         int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
         p = szDecBase64Buf;
-        if (!(signinfo->pkey = d2i_AutoPrivateKey(NULL, &p, tmplen))){
+        if (!(signCtx->pkey = d2i_AutoPrivateKey(NULL, &p, tmplen))){
             PRINT_ERROR ("d2i_AutoPrivateKey failed");
             iErr = ERR_FAILED;
             break;
         }
 
-        if (!(md = EVP_get_digestbyname(alg))) {
-            iErr = ERR_FAILED;
-            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
-            break;
-        }
-
-        EVP_MD_CTX_init(&signinfo->mdctx);
-        if (!EVP_DigestSignInit(&signinfo->mdctx, &signinfo->pkctx, md, NULL, signinfo->pkey))
+        if (!EVP_DigestSignInit(&signCtx->mdctx, &signCtx->pkctx, signCtx->md, NULL, signCtx->pkey))
         {
             iErr = ERR_FAILED;
             PRINT_ERROR("EVP_DigestSignInit failed.");
             break;
         }
 
-        if (!EVP_PKEY_CTX_set_rsa_padding(signinfo->pkctx, RSA_PKCS1_PADDING)){
+        if (!EVP_PKEY_CTX_set_rsa_padding(signCtx->pkctx, RSA_PKCS1_PADDING)){
             PRINT_ERROR("EVP_PKEY_CTX_set_rsa_padding failed");
             iErr = ERR_FAILED;
             break;
@@ -871,18 +975,17 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSi
 
     } while (0);
 
-	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
     if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
 
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
         return (jlong) NULL;
     }
 
-    return (jlong) signinfo;
+    return (jlong) signCtx;
 }
 
 /*
@@ -897,12 +1000,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSig
     size_t in_len = 0;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
         return ERR_FAILED;
     }
-
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
@@ -927,7 +1029,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSig
             break;
         }
 
-        if (!EVP_DigestSignUpdate(&signinfo->mdctx, inbuf, in_len))
+        if (!EVP_DigestSignUpdate(&signCtx->mdctx, inbuf, in_len))
         {
             PRINT_ERROR ("EVP_SignUpdate failed");
             iErr = ERR_FAILED;
@@ -939,9 +1041,9 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSig
     
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
     }
 
     return iErr;
@@ -958,20 +1060,19 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
     jbyteArray ret = NULL;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
-        return ret;
+        return NULL;
     }
-
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
-        size_t signlen = EVP_PKEY_size (signinfo->pkey);
+        size_t signlen = EVP_PKEY_size (signCtx->pkey);
         unsigned char signbuf[signlen];
         memset (signbuf, 0, sizeof (signbuf));
 
-        if (!EVP_DigestSignFinal(&signinfo->mdctx, signbuf, &signlen))
+        if (!EVP_DigestSignFinal(&signCtx->mdctx, signbuf, &signlen))
         {
             PRINT_ERROR ("EVP_DigestSignFinal failed");
             iErr = ERR_FAILED;
@@ -987,9 +1088,9 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
         (*env)->SetByteArrayRegion(env, ret, 0, signlen, (jbyte *)signbuf);
     } while (0);
 
-    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-    EVP_MD_CTX_cleanup (&signinfo->mdctx);
-    if (NULL != signinfo) free (signinfo);
+    if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+    EVP_MD_CTX_cleanup (&signCtx->mdctx);
+    if (NULL != signCtx) free (signCtx);
 
     return ret;
 }
@@ -1001,25 +1102,22 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
  * Note:      padding默认PKCS1,如有需要可以支持其他的
  */
 JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInitContext
-  (JNIEnv *env , jclass this, jstring algor, jbyteArray key)
+  (JNIEnv *env , jclass this, jstring algor)
 {
-    SIGNINFO *signinfo = (SIGNINFO*) malloc (sizeof (SIGNINFO));
-    if (NULL == signinfo)
+    SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
+    if (NULL == signCtx)
     {
         return (jlong) NULL;
     }
-    memset (signinfo, 0, sizeof (SIGNINFO));
+    memset (signCtx, 0, sizeof (SIGNCTX));
     const char* alg = NULL;
 	const unsigned char *p = NULL;
-    unsigned char *keybuf = NULL;
-	unsigned int keylen = 0;
-	const EVP_MD *md = NULL;
     int iErr = ERR_SUCCESS;
     OpenSSL_add_all_algorithms ();
 
     do
     {
-        if ((NULL == algor) || (NULL == key))
+        if (NULL == algor) 
         {
             iErr = ERR_FAILED;
             PRINT_ERROR ("invalid input");
@@ -1029,6 +1127,58 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVe
         if (!(alg = (*env)->GetStringUTFChars(env, algor, 0))) {
             iErr = ERR_FAILED;
             PRINT_ERROR("invalid alg");
+            break;
+        }
+
+        if (!(signCtx->md = EVP_get_digestbyname(alg))) {
+            iErr = ERR_FAILED;
+            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
+            break;
+        }
+
+        EVP_MD_CTX_init(&signCtx->mdctx);
+    } while (0);
+
+	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
+        return (jlong) NULL;
+    }
+
+    return (jlong) signCtx;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslRSANativeVerifyInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ * Note:      padding默认PKCS1,如有需要可以支持其他的
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInit
+  (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
+{
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
+    {
+        return (jlong) NULL;
+    }
+
+	const unsigned char *p = NULL;
+    unsigned char *keybuf = NULL;
+	unsigned int keylen = 0;
+    int iErr = ERR_SUCCESS;
+    OpenSSL_add_all_algorithms ();
+
+    do
+    {
+        if (NULL == key)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
             break;
         }
 
@@ -1049,27 +1199,20 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVe
         unsigned char szDecBase64Buf[keylen];
         int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
         p = szDecBase64Buf;
-        if (!(signinfo->pkey = d2i_PUBKEY(&signinfo->pkey, &p, tmplen))){
+        if (!(signCtx->pkey = d2i_PUBKEY(&signCtx->pkey, &p, tmplen))){
             PRINT_ERROR ("d2i_AutoPrivateKey failed");
             iErr = ERR_FAILED;
             break;
         }
 
-        if (!(md = EVP_get_digestbyname(alg))) {
-            iErr = ERR_FAILED;
-            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
-            break;
-        }
-
-        EVP_MD_CTX_init(&signinfo->mdctx);
-        if (!EVP_DigestVerifyInit(&signinfo->mdctx, &signinfo->pkctx, md, NULL, signinfo->pkey))
+        if (!EVP_DigestVerifyInit(&signCtx->mdctx, &signCtx->pkctx, signCtx->md, NULL, signCtx->pkey))
         {
             iErr = ERR_FAILED;
             PRINT_ERROR("EVP_DigestSignInit failed.");
             break;
         }
 
-        if (!EVP_PKEY_CTX_set_rsa_padding(signinfo->pkctx, RSA_PKCS1_PADDING)){
+        if (!EVP_PKEY_CTX_set_rsa_padding(signCtx->pkctx, RSA_PKCS1_PADDING)){
             PRINT_ERROR("EVP_PKEY_CTX_set_rsa_padding failed");
             iErr = ERR_FAILED;
             break;
@@ -1077,18 +1220,17 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVe
 
     } while (0);
 
-	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
     if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
 
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
         return (jlong) NULL;
     }
 
-    return (jlong) signinfo;
+    return (jlong) signCtx;
 }
 
 /*
@@ -1103,12 +1245,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
     size_t in_len = 0;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
         return ERR_FAILED;
     }
-
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
@@ -1133,7 +1274,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
             break;
         }
 
-        if (!EVP_DigestVerifyUpdate(&signinfo->mdctx, inbuf, in_len))
+        if (!EVP_DigestVerifyUpdate(&signCtx->mdctx, inbuf, in_len))
         {
             PRINT_ERROR ("EVP_DigestVerifyUpdate failed");
             iErr = ERR_FAILED;
@@ -1145,9 +1286,9 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
     
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
     }
 
     return iErr;
@@ -1165,12 +1306,12 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
     unsigned char* signbuf = NULL;
     size_t signlen = 0;
 
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
     if (NULL == (void*) ctx)
     {
         return ERR_FAILED;
     }
 
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
@@ -1195,7 +1336,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
             break;
         }
 
-        iErr = EVP_DigestVerifyFinal(&signinfo->mdctx, signbuf, signlen);
+        iErr = EVP_DigestVerifyFinal(&signCtx->mdctx, signbuf, signlen);
         if (ERR_SUCCESS != iErr)
         {
             break;
@@ -1205,9 +1346,9 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
 
     if (signbuf) (*env)->ReleaseByteArrayElements(env, sign, (jbyte*)signbuf, JNI_ABORT);
 
-    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-    EVP_MD_CTX_cleanup (&signinfo->mdctx);
-    if (NULL != signinfo) free (signinfo);
+    if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+    EVP_MD_CTX_cleanup (&signCtx->mdctx);
+    if (NULL != signCtx) free (signCtx);
 
     return (jint) iErr;
 }
@@ -1450,19 +1591,63 @@ JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativegen
  * Class:     com_zenzet_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2CryptInitContext
  * Signature: (I[B)J
+ * Note:      mode, padding实际没使用到
  */
 JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInitContext
-  (JNIEnv *env, jclass this, jint mode,  jbyteArray key)
+  (JNIEnv *env, jclass this, jint mode,  jint padding)
+{
+    int iErr = ERR_SUCCESS;
+
+    (void) mode;
+    (void) padding;
+
+    SM2CTX *sm2Context = NULL;
+
+    do 
+    {
+        sm2Context = (SM2CTX*) malloc (sizeof (SM2CTX));
+        if (NULL == sm2Context)
+        {
+            PRINT_ERROR("malloc failed");
+            iErr = ERR_FAILED;
+            break;
+        }
+
+    } while (0);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        free (sm2Context);
+        sm2Context = NULL;
+    }
+
+	return (jlong) sm2Context;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2CryptInit
+ * Signature: (I[B)J
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInit
+  (JNIEnv *env, jclass this, jlong ctx, jint mode,  jbyteArray key)
 {
 	unsigned char *keybuf = NULL;
 	size_t keylen = 0;
 	const unsigned char *p = NULL;
 	EVP_PKEY *pkey = NULL;
-	EVP_PKEY_CTX *pkctx = NULL;
     int iErr = ERR_SUCCESS;
+
+    SM2CTX *sm2Context = (SM2CTX*) ctx;
+    if (NULL == sm2Context)
+    {
+        return ERR_FAILED;
+    }
 
     do 
     {
+        sm2Context->cryptmode = mode;
+
         if (NULL == key)
         {
             PRINT_ERROR ("invalid input ");
@@ -1488,7 +1673,7 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cr
         int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
 
         p = szDecBase64Buf;
-        if (ENCRYPT == mode)
+        if (ENCRYPT == sm2Context->cryptmode)
         {
             if (!(pkey = d2i_PUBKEY(&pkey, &p, tmplen))) {
                 PRINT_ERROR ("d2i_PUBKEY failed");
@@ -1505,15 +1690,15 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cr
             }
         }
 
-        if (!(pkctx = EVP_PKEY_CTX_new(pkey, NULL))) {
+        if (!(sm2Context->pkctx = EVP_PKEY_CTX_new(pkey, NULL))) {
             PRINT_ERROR("EVP_PKEY_CTX_new failed");
             iErr = ERR_FAILED;
             break;
         }
 
-        if (ENCRYPT == mode)
+        if (ENCRYPT == sm2Context->cryptmode)
         {
-            if (!EVP_PKEY_encrypt_init(pkctx)) 
+            if (!EVP_PKEY_encrypt_init(sm2Context->pkctx)) 
             {
                 PRINT_ERROR("EVP_PKEY_encrypt_init failed");
                 iErr = ERR_FAILED;
@@ -1522,7 +1707,7 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cr
         }
         else
         {
-            if (!EVP_PKEY_decrypt_init(pkctx))
+            if (!EVP_PKEY_decrypt_init(sm2Context->pkctx))
             {
                 PRINT_ERROR("EVP_PKEY_decrypt_init failed");
                 iErr = ERR_FAILED;
@@ -1537,10 +1722,11 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cr
 
     if (ERR_SUCCESS != iErr)
     {
-        EVP_PKEY_CTX_free(pkctx);
+        if (NULL != sm2Context->pkctx) EVP_PKEY_CTX_free(sm2Context->pkctx);
+        free(sm2Context);
     }
 
-	return (jlong) pkctx;
+	return iErr;
 }
 
 /*
@@ -1549,22 +1735,20 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cr
  * Signature: (JI[B)[B
  */
 static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate
-  (JNIEnv *env, jclass this, jlong ctx, jint mode, jbyteArray in)
+  (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
 	unsigned char *inbuf = NULL;
 	unsigned char *outbuf = NULL;
 	size_t inlen, outlen;
 	EVP_PKEY *pkey = NULL;
-	EVP_PKEY_CTX *pkctx = NULL;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*)ctx)
+    SM2CTX *sm2Context = (SM2CTX*) ctx;
+    if (NULL == sm2Context)
     {
-        PRINT_ERROR ("invalid param");
         return ret;
     }
-    pkctx = (EVP_PKEY_CTX*) ctx;
 
     do 
     {
@@ -1598,9 +1782,9 @@ static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSs
             break;
         }
 
-        if (ENCRYPT == mode)
+        if (ENCRYPT == sm2Context->cryptmode)
         {
-            if (!EVP_PKEY_encrypt(pkctx, outbuf, &outlen, inbuf, inlen)) {
+            if (!EVP_PKEY_encrypt(sm2Context->pkctx, outbuf, &outlen, inbuf, inlen)) {
                 PRINT_ERROR("EVP_PKEY_encrypt failed");
                 iErr = ERR_FAILED;
                 break;
@@ -1608,7 +1792,7 @@ static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSs
         }
         else
         {
-            if (!EVP_PKEY_decrypt(pkctx, outbuf, &outlen, inbuf, inlen)) {
+            if (!EVP_PKEY_decrypt(sm2Context->pkctx, outbuf, &outlen, inbuf, inlen)) {
                 PRINT_ERROR("EVP_PKEY_decrypt failed");
                 iErr = ERR_FAILED;
                 break;
@@ -1629,7 +1813,8 @@ static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSs
 
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != pkctx) EVP_PKEY_CTX_free(pkctx);
+        if (NULL != sm2Context->pkctx) EVP_PKEY_CTX_free(sm2Context->pkctx);
+        free(sm2Context);
     }
 
 	return ret;
@@ -1641,17 +1826,24 @@ static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSs
  * Signature: (J[B)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptdoFinal
-  (JNIEnv *env, jclass this, jlong ctx, jint mode, jbyteArray in)
+  (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
-    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate (env, this, ctx, mode, in);
+
+    SM2CTX *sm2Context = (SM2CTX*) ctx;
+    if (NULL == sm2Context)
+    {
+        return ret;
+    }
+
+    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate (env, this, (jlong) sm2Context, in);
     if (NULL == ret)
     {
         return ret;
     }
 
-    EVP_PKEY_CTX *pkctx = (EVP_PKEY_CTX*) ctx;
-    EVP_PKEY_CTX_free(pkctx);
+    if (NULL != sm2Context->pkctx) EVP_PKEY_CTX_free(sm2Context->pkctx);
+    free(sm2Context);
 
     return ret;
 }
@@ -1662,25 +1854,23 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
  * Signature: (Ljava/lang/String;[B)J
  */
 JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInitContext
-  (JNIEnv *env , jclass this, jstring algor, jbyteArray key)
+  (JNIEnv *env , jclass this, jstring algor)
 {
-    SIGNINFO *signinfo = (SIGNINFO*) malloc (sizeof (SIGNINFO));
-    if (NULL == signinfo)
+    SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
+    if (NULL == signCtx)
     {
         return (jlong) NULL;
     }
-    memset (signinfo, 0, sizeof (SIGNINFO));
+    memset (signCtx, 0, sizeof (SIGNCTX));
+
     const char* alg = NULL;
-	const unsigned char *p = NULL;
-    unsigned char *keybuf = NULL;
-	unsigned int keylen = 0;
 	const EVP_MD *md = NULL;
     int iErr = ERR_SUCCESS;
     OpenSSL_add_all_algorithms ();
 
     do
     {
-        if ((NULL == algor) || (NULL == key))
+        if (NULL == algor)
         {
             iErr = ERR_FAILED;
             PRINT_ERROR ("invalid input");
@@ -1690,6 +1880,56 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Si
         if (!(alg = (*env)->GetStringUTFChars(env, algor, 0))) {
             iErr = ERR_FAILED;
             PRINT_ERROR("invalid alg");
+            break;
+        }
+
+        if (!(signCtx->md = EVP_get_digestbyname(alg))) {
+            iErr = ERR_FAILED;
+            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
+            break;
+        }
+
+        EVP_MD_CTX_init(&signCtx->mdctx);
+    } while (0);
+
+	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signCtx) free (signCtx);
+        return (jlong) NULL;
+    }
+
+    return (jlong) signCtx;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2SignInitContext
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInit
+  (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
+{
+	const unsigned char *p = NULL;
+    unsigned char *keybuf = NULL;
+	unsigned int keylen = 0;
+	const EVP_MD *md = NULL;
+    int iErr = ERR_SUCCESS;
+    OpenSSL_add_all_algorithms ();
+
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
+    {
+        return ERR_FAILED;
+    }
+
+    do
+    {
+        if (NULL == key)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
             break;
         }
 
@@ -1710,20 +1950,13 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Si
         unsigned char szDecBase64Buf[keylen];
         int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
         p = szDecBase64Buf;
-        if (!(signinfo->pkey = d2i_AutoPrivateKey(NULL, &p, tmplen))){
+        if (!(signCtx->pkey = d2i_AutoPrivateKey(NULL, &p, tmplen))){
             PRINT_ERROR ("d2i_AutoPrivateKey failed");
             iErr = ERR_FAILED;
             break;
         }
 
-        if (!(md = EVP_get_digestbyname(alg))) {
-            iErr = ERR_FAILED;
-            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
-            break;
-        }
-
-        EVP_MD_CTX_init(&signinfo->mdctx);
-        if (!EVP_DigestSignInit(&signinfo->mdctx, &signinfo->pkctx, md, NULL, signinfo->pkey))
+        if (!EVP_DigestSignInit(&signCtx->mdctx, &signCtx->pkctx, signCtx->md, NULL, signCtx->pkey))
         {
             printf ("EVP_DigestSignInit failed, %s\n", LOCKET_ERR_GetString ());
             iErr = ERR_FAILED;
@@ -1732,18 +1965,16 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Si
         }
     } while (0);
 
-	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
     if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
 
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
-        return (jlong) NULL;
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
     }
 
-    return (jlong) signinfo;
+    return iErr;
 }
 
 /*
@@ -1758,12 +1989,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Sig
     size_t in_len = 0;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
         return ERR_FAILED;
     }
-
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
@@ -1788,7 +2018,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Sig
             break;
         }
 
-        if (!EVP_DigestSignUpdate(&signinfo->mdctx, inbuf, in_len))
+        if (!EVP_DigestSignUpdate(&signCtx->mdctx, inbuf, in_len))
         {
             PRINT_ERROR ("EVP_SignUpdate failed");
             iErr = ERR_FAILED;
@@ -1800,9 +2030,9 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Sig
     
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
     }
 
     return iErr;
@@ -1819,20 +2049,19 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
     jbyteArray ret = NULL;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
         return ret;
     }
 
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
-
     do 
     {
-        size_t signlen = EVP_PKEY_size (signinfo->pkey);
+        size_t signlen = EVP_PKEY_size (signCtx->pkey);
         unsigned char signbuf[signlen];
         memset (signbuf, 0, sizeof (signbuf));
 
-        if (!EVP_DigestSignFinal(&signinfo->mdctx, signbuf, &signlen))
+        if (!EVP_DigestSignFinal(&signCtx->mdctx, signbuf, &signlen))
         {
             PRINT_ERROR ("EVP_DigestSignFinal failed");
             iErr = ERR_FAILED;
@@ -1848,9 +2077,9 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
         (*env)->SetByteArrayRegion(env, ret, 0, signlen, (jbyte *)signbuf);
     } while (0);
 
-    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-    EVP_MD_CTX_cleanup (&signinfo->mdctx);
-    if (NULL != signinfo) free (signinfo);
+    if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+    EVP_MD_CTX_cleanup (&signCtx->mdctx);
+    if (NULL != signCtx) free (signCtx);
 
     return ret;
 }
@@ -1861,25 +2090,23 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
  * Signature: (Ljava/lang/String;[B)J
  */
 JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInitContext
-  (JNIEnv *env , jclass this, jstring algor, jbyteArray key)
+  (JNIEnv *env , jclass this, jstring algor)
 {
-    SIGNINFO *signinfo = (SIGNINFO*) malloc (sizeof (SIGNINFO));
-    if (NULL == signinfo)
+    SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
+    if (NULL == signCtx)
     {
         return (jlong) NULL;
     }
-    memset (signinfo, 0, sizeof (SIGNINFO));
+    memset (signCtx, 0, sizeof (SIGNCTX));
+
     const char* alg = NULL;
 	const unsigned char *p = NULL;
-    unsigned char *keybuf = NULL;
-	unsigned int keylen = 0;
-	const EVP_MD *md = NULL;
     int iErr = ERR_SUCCESS;
     OpenSSL_add_all_algorithms ();
 
     do
     {
-        if ((NULL == algor) || (NULL == key))
+        if (NULL == algor)
         {
             iErr = ERR_FAILED;
             PRINT_ERROR ("invalid input");
@@ -1889,6 +2116,57 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ve
         if (!(alg = (*env)->GetStringUTFChars(env, algor, 0))) {
             iErr = ERR_FAILED;
             PRINT_ERROR("invalid alg");
+            break;
+        }
+
+        if (!(signCtx->md = EVP_get_digestbyname(alg))) {
+            iErr = ERR_FAILED;
+            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
+            break;
+        }
+
+        EVP_MD_CTX_init(&signCtx->mdctx);
+
+    } while (0);
+
+	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
+
+    if (ERR_SUCCESS != iErr)
+    {
+        if (NULL != signCtx) free (signCtx);
+        return (jlong) NULL;
+    }
+
+    return (jlong) signCtx;
+}
+
+/*
+ * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Method:    OpenSslNativeSM2VerifyInit
+ * Signature: (Ljava/lang/String;[B)J
+ */
+JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInit
+  (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
+{
+	const unsigned char *p = NULL;
+    unsigned char *keybuf = NULL;
+	unsigned int keylen = 0;
+	const EVP_MD *md = NULL;
+    int iErr = ERR_SUCCESS;
+    OpenSSL_add_all_algorithms ();
+
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
+    {
+        return ERR_FAILED;
+    }
+
+    do
+    {
+        if (NULL == key)
+        {
+            iErr = ERR_FAILED;
+            PRINT_ERROR ("invalid input");
             break;
         }
 
@@ -1909,20 +2187,13 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ve
         unsigned char szDecBase64Buf[keylen];
         int tmplen = EVP_DecodeBlock(szDecBase64Buf, keybuf, keylen);
         p = szDecBase64Buf;
-        if (!(signinfo->pkey = d2i_PUBKEY(&signinfo->pkey, &p, tmplen))){
+        if (!(signCtx->pkey = d2i_PUBKEY(&signCtx->pkey, &p, tmplen))){
             PRINT_ERROR ("d2i_AutoPrivateKey failed");
             iErr = ERR_FAILED;
             break;
         }
 
-        if (!(md = EVP_get_digestbyname(alg))) {
-            iErr = ERR_FAILED;
-            printf ("EVP_get_digestbyname failed, alg:%s\n", alg);
-            break;
-        }
-
-        EVP_MD_CTX_init(&signinfo->mdctx);
-        if (!EVP_DigestVerifyInit(&signinfo->mdctx, &signinfo->pkctx, md, NULL, signinfo->pkey))
+        if (!EVP_DigestVerifyInit(&signCtx->mdctx, &signCtx->pkctx, signCtx->md, NULL, signCtx->pkey))
         {
             iErr = ERR_FAILED;
             PRINT_ERROR("EVP_DigestSignInit failed.");
@@ -1931,18 +2202,16 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ve
 
     } while (0);
 
-	if (alg) (*env)->ReleaseStringUTFChars(env, algor, alg);
     if (keybuf) (*env)->ReleaseByteArrayElements(env, key, (jbyte *)keybuf, JNI_ABORT);
 
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
-        return (jlong) NULL;
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
     }
 
-    return (jlong) signinfo;
+    return iErr;
 }
 
 /*
@@ -1957,12 +2226,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
     size_t in_len = 0;
     int iErr = ERR_SUCCESS;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
         return ERR_FAILED;
     }
-
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
@@ -1987,7 +2255,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
             break;
         }
 
-        if (!EVP_DigestVerifyUpdate(&signinfo->mdctx, inbuf, in_len))
+        if (!EVP_DigestVerifyUpdate(&signCtx->mdctx, inbuf, in_len))
         {
             PRINT_ERROR ("EVP_DigestVerifyUpdate failed");
             iErr = ERR_FAILED;
@@ -1999,9 +2267,9 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
     
     if (ERR_SUCCESS != iErr)
     {
-        if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-        EVP_MD_CTX_cleanup (&signinfo->mdctx);
-        if (NULL != signinfo) free (signinfo);
+        if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+        EVP_MD_CTX_cleanup (&signCtx->mdctx);
+        if (NULL != signCtx) free (signCtx);
     }
 
     return iErr;
@@ -2019,12 +2287,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
     unsigned char* signbuf = NULL;
     size_t signlen = 0;
 
-    if (NULL == (void*) ctx)
+    SIGNCTX *signCtx = (SIGNCTX*) ctx;
+    if (NULL == signCtx)
     {
         return ERR_FAILED;
     }
-
-    SIGNINFO *signinfo = (SIGNINFO*) ctx;
 
     do 
     {
@@ -2049,7 +2316,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
             break;
         }
 
-        iErr = EVP_DigestVerifyFinal(&signinfo->mdctx, signbuf, signlen);
+        iErr = EVP_DigestVerifyFinal(&signCtx->mdctx, signbuf, signlen);
         if (ERR_SUCCESS != iErr)
         {
             break;
@@ -2059,9 +2326,9 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
 
     if (signbuf) (*env)->ReleaseByteArrayElements(env, sign, (jbyte*)signbuf, JNI_ABORT);
 
-    if (NULL != signinfo->pkey) EVP_PKEY_free (signinfo->pkey);
-    EVP_MD_CTX_cleanup (&signinfo->mdctx);
-    if (NULL != signinfo) free (signinfo);
+    if (NULL != signCtx->pkey) EVP_PKEY_free (signCtx->pkey);
+    EVP_MD_CTX_cleanup (&signCtx->mdctx);
+    if (NULL != signCtx) free (signCtx);
 
     return (jint) iErr;
 }
