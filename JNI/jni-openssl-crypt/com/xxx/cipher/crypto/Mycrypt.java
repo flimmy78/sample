@@ -1,12 +1,12 @@
-package com.zenzet.cipher.crypto;
+package com.xxx.cipher.crypto;
 import java.util.*;
 
 public class Mycrypt
 {
     static { System.loadLibrary("jnicrypt");}
 
-    public native static void LOCKetAESCFB();
-    public native static Map<String, String> LKTGenerateKeyPair(int keyBytes);
+    public native static void AESCFB();
+    public native static Map<String, String> GenerateKeyPair(int keyBytes);
     public native static long getInstance(String algor);
     public native static int digestUpdate(long ctx, byte[] in);
     public native static byte [] digestFinal(long ctx);
@@ -113,7 +113,7 @@ public class Mycrypt
     public static void test_rsa_crypt ()
     {
         long ctx = 0;
-        Object object = Mycrypt.LKTGenerateKeyPair (1024);
+        Object object = Mycrypt.GenerateKeyPair (1024);
         Map<String, String>map=(Map<String, String>)object;
         String pubkey = map.get("pk");
         String privatekey = map.get("pv");
@@ -149,7 +149,7 @@ public class Mycrypt
     public static void test_rsa_sign_verify ()
     {
         long ctx = 0;
-        Object object = Mycrypt.LKTGenerateKeyPair (1024);
+        Object object = Mycrypt.GenerateKeyPair (1024);
         Map<String, String>map=(Map<String, String>)object;
         String pubkey = map.get("pk");
         String privatekey = map.get("pv");
@@ -177,7 +177,7 @@ public class Mycrypt
 
     public static void test_aes ()
     {
-        //LOCKetAESCFB ();
+        //AESCFB ();
     }
 
     public static void test_md ()

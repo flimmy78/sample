@@ -1,8 +1,7 @@
-/* Copyright (C) 2015-2016 HangZhou Zenzet Technology Co., Ltd.
+/* Copyright (C) 2015-2016 HangZhou xxx Technology Co., Ltd.
  * All right reserved
 
- * File:crypto/locketaes.c
- * Author:guojianchuan/max
+ * Author:xianggu
  * Date:2016-06-02
 
  */
@@ -19,7 +18,7 @@
 #include "openssl/bn.h" // this is for the BN_new
 
 /* my project header */
-#include "com_zenzet_cipher_crypto_Mycrypt.h"
+#include "com_xxx_cipher_crypto_Mycrypt.h"
 
 #define ERR_SUCCESS     1
 #define ERR_FAILED      2
@@ -60,7 +59,7 @@ typedef struct tagSM2Context
     EVP_PKEY_CTX *pkctx;
 }SM2CTX;
 
-char* LOCKET_ERR_GetString (void)
+char* XXX_ERR_GetString (void)
 {
     int static iInit = 0;
 
@@ -77,13 +76,13 @@ char* LOCKET_ERR_GetString (void)
 
 
 /**
-* @Function:LOCKET_CIPHER_AESCrypt
-* @Author: guojianchuan/max
+* @Function:XXX_CIPHER_AESCrypt
+* @Author: xianggu
 * @Date: 2016-06-02
 * @Description: AES encrypt/decrypt
 * @caution: Algo format: Algo-bitnum-mode eg:"AES-128-CFB",
 */
-int LOCKET_CIPHER_AESCrypt(unsigned char *pucInput, int iInputLen, unsigned  char* pucKey, unsigned char* pucIv, unsigned char *pucOutput, int *pOutputLen)
+int XXX_CIPHER_AESCrypt(unsigned char *pucInput, int iInputLen, unsigned  char* pucKey, unsigned char* pucIv, unsigned char *pucOutput, int *pOutputLen)
 {
     char *cryptMode = "AES-128-CFB";
     printf ("Encrypt Mode:%s\n", cryptMode);
@@ -118,7 +117,7 @@ int LOCKET_CIPHER_AESCrypt(unsigned char *pucInput, int iInputLen, unsigned  cha
         iErr = EVP_CipherInit_ex(pstCipherCtx, pstCipher, NULL, pucKey, pucIv, 1);
         if (ERR_SUCCESS != iErr)
         {
-            printf ("EVP_CipherInit_ex failed, %s\n", LOCKET_ERR_GetString ());
+            printf ("EVP_CipherInit_ex failed, %s\n", XXX_ERR_GetString ());
             break;
         }
         
@@ -148,11 +147,11 @@ int LOCKET_CIPHER_AESCrypt(unsigned char *pucInput, int iInputLen, unsigned  cha
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
- * Method:    LOCKetAESCFB
+ * Class:     com_xxx_cipher_crypto_Mycrypt
+ * Method:    AESCFB
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_LOCKetAESCFB (JNIEnv *env, jclass jo)
+JNIEXPORT void JNICALL Java_com_xxx_cipher_crypto_Mycrypt_AESCFB (JNIEnv *env, jclass jo)
 {
 
     int iErr = ERR_SUCCESS;
@@ -162,10 +161,10 @@ JNIEXPORT void JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_LOCKetAESCFB (JNIEn
     unsigned char szOutput[128] = {0};
     int iOutputLen = 0;
     
-    iErr =  LOCKET_CIPHER_AESCrypt(pucInput, strlen((char*)pucInput), pucKey, pucIv, szOutput, &iOutputLen);
+    iErr =  XXX_CIPHER_AESCrypt(pucInput, strlen((char*)pucInput), pucKey, pucIv, szOutput, &iOutputLen);
     if (ERR_SUCCESS != iErr)
     {
-        printf ("LOCKET_CIPHER_AESCrypt err\n");
+        printf ("XXX_CIPHER_AESCrypt err\n");
     }
 
     printf ("cryptText:");
@@ -183,11 +182,11 @@ JNIEXPORT void JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_LOCKetAESCFB (JNIEn
 
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
- * Method:    LKTGenerateKeyPair
+ * Class:     com_xxx_cipher_crypto_Mycrypt
+ * Method:    GenerateKeyPair
  * Signature: (I)Ljava/util/Map;
  */
-JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_LKTGenerateKeyPair 
+JNIEXPORT jobject JNICALL Java_com_xxx_cipher_crypto_Mycrypt_GenerateKeyPair 
 (JNIEnv *env, jclass jo, jint ji)
 {
     jclass class_map = (*env)->FindClass(env, "java/util/HashMap");
@@ -393,11 +392,11 @@ JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_LKTGenerateKeyPa
 }
 
 /*
- * Class:     Java_com_zenzet_cipher_crypto_Mycrypt_getInstance
+ * Class:     Java_com_xxx_cipher_crypto_Mycrypt_getInstance
  * Method:    getInstance
  * Signature: (I)Ljava/util/Map;
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_getInstance
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_getInstance
 (JNIEnv *env, jclass jo, jstring algor)
 {
 	const char *alg = NULL;
@@ -449,12 +448,12 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_getInstance
 }
 
 /*
- * Class:     Java_com_zenzet_cipher_crypto_Mycrypt_digestUpdate
+ * Class:     Java_com_xxx_cipher_crypto_Mycrypt_digestUpdate
  * Method:    digestUpdate
  * Signature: (I)Ljava/util/Map;
  */
 JNIEXPORT
-jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestUpdate
+jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_digestUpdate
 (JNIEnv *env, jobject this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
@@ -503,11 +502,11 @@ jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestUpdate
 }
 
 /*
- * Class:     Java_com_zenzet_cipher_crypto_Mycrypt_digestFinal
+ * Class:     Java_com_xxx_cipher_crypto_Mycrypt_digestFinal
  * Method:    digestFinal
  * Signature: (I)Ljava/util/Map;
  */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestFinal
+JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_digestFinal
 (JNIEnv *env, jobject this, jlong ctx)
 {
 
@@ -568,12 +567,12 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_digestFinal
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    
  * Signature: (Ljava/lang/String;I[B[B)[B
  * Note:      padding 参考当前文件内定义的PADDINGMODE
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInitContext
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInitContext
   (JNIEnv *env, jclass this, jint algomode,  jint padding)
 {
     (void) algomode;
@@ -604,12 +603,12 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCr
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    publicKeyEncrypt
  * Signature: (Ljava/lang/String;I[B[B)[B
  * Note:      cryptmode, 参考当前文件内定义的CRYPTMODE
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInit
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeCryptInit
   (JNIEnv *env, jclass this, jlong ctx, jint cryptmode, jbyteArray key)
 {
 	unsigned char *keybuf = NULL;
@@ -734,11 +733,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCry
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeCryptUpdate
  * Signature: (J[B)[B
  */
-static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate
+static JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate
   (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
@@ -831,15 +830,15 @@ static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSs
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeCryptdoFinal
  * Signature: (J[B)[B
  */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptdoFinal
+JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeCryptdoFinal
   (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
-    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate (env, this, ctx, in);
+    ret = Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeCryptUpdate (env, this, ctx, in);
     if (NULL == ret)
     {
         return ret;
@@ -853,12 +852,12 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeSignInitContext
  * Signature: (Ljava/lang/String;[B)J
  * Note:      padding默认PKCS1,如有需要可以支持其他的
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignInitContext
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeSignInitContext
   (JNIEnv *env , jclass this, jstring algor)
 {
     SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
@@ -908,12 +907,12 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSi
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeSignInitContext
  * Signature: (Ljava/lang/String;[B)J
  * Note:      padding默认PKCS1,如有需要可以支持其他的
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignInit
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeSignInit
   (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
 {
     SIGNCTX *signCtx = (SIGNCTX*) ctx;
@@ -989,11 +988,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSig
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeSignUpdate
  * Signature: (J[B)I
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSignUpdate
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeSignUpdate
   (JNIEnv *env, jclass this , jlong ctx, jbyteArray in)
 {
     char *inbuf = NULL;
@@ -1050,11 +1049,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSig
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeSigndoFinal
  * Signature: (J[B)[B
  */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeSigndoFinal
+JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeSigndoFinal
   (JNIEnv *env, jclass this, jlong ctx)
 {
     jbyteArray ret = NULL;
@@ -1096,12 +1095,12 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANat
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeVerifyInitContext
  * Signature: (Ljava/lang/String;[B)J
  * Note:      padding默认PKCS1,如有需要可以支持其他的
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInitContext
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInitContext
   (JNIEnv *env , jclass this, jstring algor)
 {
     SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
@@ -1153,12 +1152,12 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVe
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeVerifyInitContext
  * Signature: (Ljava/lang/String;[B)J
  * Note:      padding默认PKCS1,如有需要可以支持其他的
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInit
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyInit
   (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
 {
     SIGNCTX *signCtx = (SIGNCTX*) ctx;
@@ -1234,11 +1233,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeVerifyUpdate
  * Signature: (J[B)I
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyUpdate
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeVerifyUpdate
   (JNIEnv *env, jclass this , jlong ctx, jbyteArray in)
 {
     char *inbuf = NULL;
@@ -1295,11 +1294,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVer
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslRSANativeSigndoFinal
  * Signature: (J[B)I
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslRSANativeVerifydoFinal
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslRSANativeVerifydoFinal
   (JNIEnv *env, jclass this, jlong ctx, jbyteArray sign)
 {
     int iErr = ERR_SUCCESS;
@@ -1496,7 +1495,7 @@ int get_sm2_private_key (EVP_PKEY *pstKey, char *pcPrivateKey)
  * Method:    generateSM2KeyPair
  * Signature: (I)Ljava/util/Map;
  */
-JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativegenerateSM2KeyPair
+JNIEXPORT jobject JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativegenerateSM2KeyPair
 (JNIEnv *env, jclass jo)
 {
     jclass class_map = (*env)->FindClass(env, "java/util/HashMap");
@@ -1588,12 +1587,12 @@ JNIEXPORT jobject JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativegen
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2CryptInitContext
  * Signature: (I[B)J
  * Note:      mode, padding实际没使用到
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInitContext
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInitContext
   (JNIEnv *env, jclass this, jint mode,  jint padding)
 {
     int iErr = ERR_SUCCESS;
@@ -1625,11 +1624,11 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cr
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2CryptInit
  * Signature: (I[B)J
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInit
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptInit
   (JNIEnv *env, jclass this, jlong ctx, jint mode,  jbyteArray key)
 {
 	unsigned char *keybuf = NULL;
@@ -1730,11 +1729,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Cry
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2CryptUpdate
  * Signature: (JI[B)[B
  */
-static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate
+static JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate
   (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
@@ -1821,11 +1820,11 @@ static JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSs
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2CryptdoFinal
  * Signature: (J[B)[B
  */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptdoFinal
+JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptdoFinal
   (JNIEnv *env, jclass this, jlong ctx, jbyteArray in)
 {
 	jbyteArray ret = NULL;
@@ -1836,7 +1835,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
         return ret;
     }
 
-    ret = Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate (env, this, (jlong) sm2Context, in);
+    ret = Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2CryptUpdate (env, this, (jlong) sm2Context, in);
     if (NULL == ret)
     {
         return ret;
@@ -1849,11 +1848,11 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2SignInitContext
  * Signature: (Ljava/lang/String;[B)J
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInitContext
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInitContext
   (JNIEnv *env , jclass this, jstring algor)
 {
     SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
@@ -1904,11 +1903,11 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Si
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2SignInitContext
  * Signature: (Ljava/lang/String;[B)J
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInit
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2SignInit
   (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
 {
 	const unsigned char *p = NULL;
@@ -1958,7 +1957,7 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Sig
 
         if (!EVP_DigestSignInit(&signCtx->mdctx, &signCtx->pkctx, signCtx->md, NULL, signCtx->pkey))
         {
-            printf ("EVP_DigestSignInit failed, %s\n", LOCKET_ERR_GetString ());
+            printf ("EVP_DigestSignInit failed, %s\n", XXX_ERR_GetString ());
             iErr = ERR_FAILED;
             PRINT_ERROR("EVP_DigestSignInit failed.");
             break;
@@ -1978,11 +1977,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Sig
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2SignUpdate
  * Signature: (J[B)I
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SignUpdate
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2SignUpdate
   (JNIEnv *env, jclass this , jlong ctx, jbyteArray in)
 {
     char *inbuf = NULL;
@@ -2039,11 +2038,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Sig
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2SigndoFinal
  * Signature: (J)[B
  */
-JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2SigndoFinal
+JNIEXPORT jbyteArray JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2SigndoFinal
   (JNIEnv *env, jclass this, jlong ctx)
 {
     jbyteArray ret = NULL;
@@ -2085,11 +2084,11 @@ JNIEXPORT jbyteArray JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNative
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2VerifyInitContext
  * Signature: (Ljava/lang/String;[B)J
  */
-JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInitContext
+JNIEXPORT jlong JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInitContext
   (JNIEnv *env , jclass this, jstring algor)
 {
     SIGNCTX *signCtx = (SIGNCTX*) malloc (sizeof (SIGNCTX));
@@ -2141,11 +2140,11 @@ JNIEXPORT jlong JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ve
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2VerifyInit
  * Signature: (Ljava/lang/String;[B)J
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInit
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyInit
   (JNIEnv *env , jclass this, jlong ctx, jbyteArray key)
 {
 	const unsigned char *p = NULL;
@@ -2215,11 +2214,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2VerifyUpdate
  * Signature: (J[B)I
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyUpdate
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifyUpdate
   (JNIEnv *env, jclass this , jlong ctx, jbyteArray in)
 {
     char *inbuf = NULL;
@@ -2276,11 +2275,11 @@ JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2Ver
 }
 
 /*
- * Class:     com_zenzet_cipher_crypto_Mycrypt
+ * Class:     com_xxx_cipher_crypto_Mycrypt
  * Method:    OpenSslNativeSM2VerifydoFinal
  * Signature: (J[B)I
  */
-JNIEXPORT jint JNICALL Java_com_zenzet_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifydoFinal
+JNIEXPORT jint JNICALL Java_com_xxx_cipher_crypto_Mycrypt_OpenSslNativeSM2VerifydoFinal
   (JNIEnv *env, jclass this, jlong ctx, jbyteArray sign)
 {
     int iErr = ERR_SUCCESS;
