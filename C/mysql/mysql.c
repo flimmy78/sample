@@ -15,7 +15,9 @@ int main()
 
     MYSQL *mysqlhdl = NULL;
 
-    mysqlhdl = mysql_real_connect (&mysql, "127.0.0.1", "root", "123456", "runoob", 3306, 0, 0);
+    //3306连接的是mysql本身, 3307连接的是sqlrelay
+//mysqlhdl = mysql_real_connect (&mysql, "192.168.10.230", "root", "123456", "runoob", 3306, 0, 0);
+    mysqlhdl = mysql_real_connect (&mysql, "192.168.10.230", "sqlruser", "sqlrpassword", "runoob", 3307, 0, 0);
     if (NULL == mysqlhdl)
     {
         fprintf (stderr, "mysql_real_connect failed\n");
