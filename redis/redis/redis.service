@@ -1,0 +1,12 @@
+[Unit]
+Description=Redis Server
+After=syslog.target network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+ExecStart=/opt/redis/redis.sh start
+ExecStop=/opt/redis/redis.sh stop
+ExecReload=/opt/redis/redis.sh force-reload
+
+[Install]
+WantedBy=multi-user.target
