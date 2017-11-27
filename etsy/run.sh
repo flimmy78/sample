@@ -1,11 +1,11 @@
 #!/bin/bash
 
 TIME=2
-SHOPNAME=AURAMORE
+SHOPNAME=$1
 SHOPURL="https://www.etsy.com/shop/"$SHOPNAME
 SOLDURL=$SHOPURL"/sold?ref=pagination&page="
-STARTPAGE=$1
-ENDPAGE=$2
+STARTPAGE=$2
+ENDPAGE=$3
 
 #删除中间文件
 rm -fr $SHOPNAME.txt
@@ -20,14 +20,19 @@ do
     echo "$SOLDURL$i"
     curl -s $SOLDURL$i  > curl.txt
     if [ $? -eq 0 ];then
-        egrep "(^\s{8}title=)|(^\s{24}<img src=)" curl.txt | grep -o "\".*\"">> $SHOPNAME.txt
+        egrep "(^\s{9}href.*)|(^\s{8}title=)|(^\s{24}<img src=)" curl.txt | grep -o "\".*\"">> $SHOPNAME.txt
         sleep $TIME
     fi
 done
 
+#title相同的listing，有可能image,ref不相同,所以需要把image,ref保持一致, 否则影响排序
+./a.out $SHOPNAME.txt > tmp.txt
+cp -fr tmp.txt  $SHOPNAME.txt
+
 #加入img标签和<br>标签
 echo "Format"
-awk '{tmp=$0;getline;print tmp"\t  <br><img src="$0"/><br>"}' $SHOPNAME.txt > tmp.txt
+#awk '{tmp=$0;getline;print tmp"\t  <br><img src="$0"/><br>"}' $SHOPNAME.txt > tmp.txt  两行互换
+awk '{first=$0;getline;sec=$0;getline;print sec"\t  <br><img src="$0"/>""\t <a rel=\"external\" href="first">查看</a><br>"}' $SHOPNAME.txt > tmp.txt #title->image->ref的排序
 cp -fr tmp.txt  $SHOPNAME.txt
 
 #排序，然后去重，行首加入产品销售数量，再重新排序
@@ -44,7 +49,7 @@ echo "Resort"
 sort -r tmp.txt > ${SHOPNAME}_uniq.html 
 
 #删除中间文件
-rm -fr cur.txt
+rm -fr curl.txt
 rm -fr tmp.txt
 
 echo "Finish"
