@@ -1,0 +1,9 @@
+{
+	"CONF_URL" : "http://127.0.0.1:9001",
+	"CONF_PLUGIN_NAME" : "mirror",
+	"CONF_USERS" : {
+		"qzgw": "conf1711"
+	},
+	"CFG_CONNECT_TIMEOUT" : 1000,
+	"DEBUG" : false
+}
