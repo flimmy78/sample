@@ -53,3 +53,54 @@ print (tbl.name)
 for k, v in pairs (tbl) do
   print (k.." : "..v)
 end
+
+-- while循环
+local i = 0
+while(i < 10)
+  do
+    print (i)
+    i = i + 1
+  end
+
+-- for 循环
+for i = 10, 1, -1 do
+  print ("for: "..i)
+end
+
+days = {"Suanday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"}  
+for i,v in ipairs(days) do  
+  print(v)
+end 
+
+-- repeat循环
+--[ 变量定义 --]
+local a = 10
+--[ 执行循环 --]
+repeat
+   print("a的值为:", a)
+   a = a + 1
+until( a > 15 )
+
+-- else if ..then
+local b = 10
+if (b == 5) then
+  print (b)
+elseif (b == 10) then
+  print (b)
+else 
+  print (b)
+end
+
+--function
+myprint = function(param)
+   print("这是打印函数 -   ##",param,"##")
+end
+
+function add(num1,num2,functionPrint)
+   result = num1 + num2
+   -- 调用传递的函数参数
+   functionPrint(result)
+end
+myprint(10)
+-- myprint 函数作为参数传递
+add(2,5,myprint)
